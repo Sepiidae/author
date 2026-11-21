@@ -1,0 +1,37 @@
+# Local secrets — never committed
+.env
+.env.local
+*.env
+secrets.yaml
+secrets.local.yaml
+serviceAccount.json
+google_credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# App runtime data (local dev DB, uploads, logs)
+/data/
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+*.log
+
+# Memory directory (user/project memory)
+.memory/
+claude-memory/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

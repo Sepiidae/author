@@ -1,0 +1,24 @@
+# Basic (non-secret) configuration for Book Author.
+#
+# Secrets (secret_key, database credentials, AI api_key, Google OAuth) are NOT
+# stored here. They come from the environment / a .env file that is ignored by
+# git (see .gitignore). Most *runtime* configuration is persisted in the
+# database instead (see the /settings API).
+
+app:
+  name: "Book Author"
+  default_language: en
+
+# The database URL is intentionally left out of this file — set DATABASE_URL in
+# your .env instead. Examples:
+#   sqlite:    sqlite:///./data/book_author.db
+#   postgres:  postgresql+psycopg2://user:pass@localhost:5432/book_author
+#   mariadb:   mysql+pymysql://user:pass@localhost:3306/book_author
+# database_url: sqlite:///./data/book_author.db
+
+# AI endpoint + model (our endpoint). The api_key comes from .env (AI_API_KEY).
+ai:
+  base_url: "https://llm-router.iam.hpc.fau.edu/v1"
+  model: "ornith-1.5"
+  fast_model: "ornith-1.5:9b"
+  context_tokens: 100000

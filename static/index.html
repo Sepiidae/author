@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book Author</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #0f1115; color: #e6e6e6; }
+    header { padding: 0.75rem 1.25rem; border-bottom: 1px solid #222; display: flex;
+             align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.1rem; margin: 0; }
+    main { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1.25rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+    .card { background: #1a1d25; border: 1px solid #2a2d36; border-radius: 10px; padding: 1rem; }
+    .card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+    .card p { margin: 0; color: #9aa0aa; font-size: 0.85rem; }
+    button, .btn { background: #4f6fed; color: #fff; border: 0; border-radius: 6px;
+             padding: 0.5rem 0.8rem; font-size: 0.9rem; cursor: pointer; text-decoration: none; display: inline-block; }
+    button.secondary { background: #2a2d36; }
+    input, select, textarea { width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #333;
+             background: #0f1115; color: #fff; box-sizing: border-box; font-family: inherit; }
+    label { display: block; margin: 0.6rem 0 0.25rem; font-size: 0.8rem; color: #9aa0aa; }
+    .muted { color: #7a8088; font-size: 0.85rem; }
+    .row { display: flex; gap: 0.5rem; align-items: center; }
+    .hidden { display: none; }
+    pre { background: #0b0c10; padding: 0.75rem; border-radius: 8px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📖 Book Author</h1>
+    <div id="authbox">
+      <span id="whoami" class="muted"></span>
+      <button id="logoutBtn" class="secondary hidden">Log out</button>
+      <a href="/auth/google/login" id="googleBtn" class="hidden">Log in with Google</a>
+    </div>
+  </header>
+  <main>
+    <!-- Login / register -->
+    <section id="login" class="card" style="max-width:26rem;margin:0 auto;">
+      <h3>Sign in</h3>
+      <label>Email</label><input id="email" type="email" placeholder="author@example.com">
+      <label>Password</label><input id="password" type="password" placeholder="••••••••">
+      <div class="row" style="margin-top:1rem;">
+        <button id="loginBtn">Log in / Register</button>
+      </div>
+      <p class="muted" style="margin-top:0.75rem;">First account becomes the admin.</p>
+    </section>
+
+    <!-- App -->
+    <section id="app" class="hidden">
+      <div class="row" style="margin-bottom:1rem;">
+        <h2 style="margin:0;">Your universes</h2>
+        <button id="newUniverseBtn" class="secondary" style="margin-left:auto;">+ New universe</button>
+        <button id="tokenBtn" class="secondary">API tokens</button>
+        <button id="aiBtn" class="secondary">AI assist</button>
+      </div>
+      <div id="universes" class="grid"></div>
+      <div id="detail" class="hidden" style="margin-top:1.5rem;">
+        <div class="row"><h2 id="detailTitle" style="margin:0;"></h2>
+          <button id="backBtn" class="secondary" style="margin-left:auto;">← Back</button></div>
+        <div id="detailBody" class="muted"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const api = (m, path, body) => fetch(path, {
+      method: m, headers: body ? {'Content-Type':'application/json'} : {},
+      body: body ? JSON.stringify(body) : undefined
+    }).then(r => r.json());
+    let token = localStorage.getItem('ba_token');
+
+    function authedHeaders(){ return { Authorization: 'Bearer ' + token }; }
+
+    async function refresh() {
+      if (!token) return;
+      try {
+        const me = await fetch('/auth/me', { headers: authedHeaders() }).then(r=>r.ok?r.json():null);
+        if (!me) { logout(); return; }
+        document.getElementById('whoami').textContent = me.email;
+        document.getElementById('login').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        loadUniverses();
+      } catch(e){ logout(); }
+    }
+    function logout(){ token=null; localStorage.removeItem('ba_token');
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login').classList.remove('hidden');
+      document.getElementById('whoami').textContent=''; }
+
+    document.getElementById('loginBtn').onclick = async () => {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const r = await fetch('/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email,password}) });
+      if (r.ok){ token = (await r.json()).access_token; localStorage.setItem('ba_token', token); refresh(); }
+      else {
+        // first user? try register
+        const rr = await fetch('/auth/register', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({email,password}) });
+        if (rr.ok){ token = (await rr.json()).access_token; localStorage.setItem('ba_token', token); refresh(); }
+        else alert('Login failed: ' + (await rr.json()).detail);
+      }
+    };
+    document.getElementById('logoutBtn').onclick = logout;
+
+    async function loadUniverses(){
+      const list = await fetch('/content/universes', { headers: authedHeaders() }).then(r=>r.json());
+      const box = document.getElementById('universes');
+      box.innerHTML = list.map(u => `<div class="card"><h3>${u.title}</h3>
+        <p>${(u.description||'').slice(0,80)||'No description'}</p>
+        <button class="secondary" data-id="${u.id}">Open</button></div>`).join('');
+      box.querySelectorAll('button[data-id]').forEach(b =>
+        b.onclick = () => openUniverse(b.dataset.id));
+    }
+    document.getElementById('newUniverseBtn').onclick = async () => {
+      const title = prompt('Universe title:');
+      if (!title) return;
+      await api('POST','/content/universes', {title, description:''}, authedHeaders());
+      loadUniverses();
+    };
+    async function openUniverse(id){
+      const u = await fetch('/content/universes/'+id, { headers: authedHeaders() }).then(r=>r.json());
+      document.getElementById('universes').classList.add('hidden');
+      document.getElementById('newUniverseBtn').parentElement.querySelector('h2').textContent = u.title;
+      document.getElementById('detailTitle').textContent = u.title;
+      document.getElementById('detailBody').innerHTML = u.description || '<p class="muted">No description.</p>';
+      document.getElementById('detail').classList.remove('hidden');
+    }
+    document.getElementById('backBtn').onclick = () => {
+      document.getElementById('detail').classList.add('hidden');
+      document.getElementById('universes').classList.remove('hidden');
+    };
+    document.getElementById('tokenBtn').onclick = async () => {
+      const name = prompt('Token name:') || 'web';
+      const res = await fetch('/auth/tokens?name='+encodeURIComponent(name), { method:'POST', headers: authedHeaders() });
+      const data = await res.json();
+      alert('Your token (shown once):\n\n' + data.token + '\n\nStore it safely.');
+    };
+    document.getElementById('aiBtn').onclick = async () => {
+      const kind = prompt('What to generate? (e.g. background, character, outline, chapter)') || 'background';
+      const input = prompt('Your input / notes:') || '';
+      const res = await fetch('/ai/generate?kind='+encodeURIComponent(kind)+'&author_input='+encodeURIComponent(input),
+        { method:'POST', headers: authedHeaders() });
+      const data = await res.ok ? await res.json() : { generated: 'AI unavailable: ' + JSON.stringify(await res.json()) };
+      alert(data.generated);
+    };
+
+    // Show Google button only if enabled
+    fetch('/auth/google/login').then(r=>{ if(r.ok) document.getElementById('googleBtn').classList.remove('hidden'); });
+    refresh();
+  </script>
+</body>
+</html>
